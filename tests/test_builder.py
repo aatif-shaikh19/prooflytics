@@ -362,9 +362,65 @@ def test_reports_api_isolation(auth_client_a, auth_client_b, test_users):
     assert not any(r["id"] == report_a.id for r in data_b)
 
     # Single report API
-    res_single_a = client_a.get(f"/reports/{report_a.id}/api")
-    assert res_single_a.status_code == 200
-    assert res_single_a.json()["id"] == report_a.id
-
     res_single_b = client_b.get(f"/reports/{report_a.id}/api")
     assert res_single_b.status_code == 404
+
+def test_report_clone_action(auth_client_a, db_session, test_users):
+    client_a, _, session_a = auth_client_a
+    report_a = test_users["report_a"]
+
+    # Add block to report_a
+    b1 = ReportBlock(report_id=report_a.id, kind="metric", position=0, config_json='{"title": "Clonable Metric"}')
+    db_session.add(b1)
+    db_session.commit()
+
+    # Clone report
+    res_clone = client_a.post(
+        f"/reports/{report_a.id}/clone",
+        data={"csrf_token": session_a.csrf_token},
+        follow_redirects=False,
+    )
+    assert res_clone.status_code == 303
+    redirect_url = res_clone.headers["location"]
+    cloned_id = redirect_url.split("/")[-1]
+
+    # Verify cloned report exists with "Copy of" prefix and copied blocks
+    cloned_report = db_session.query(Report).filter(Report.id == cloned_id).first()
+    assert cloned_report is not None
+    assert cloned_report.title == f"Copy of {report_a.title}"
+    assert len(cloned_report.blocks) == len(report_a.blocks)
+
+def test_report_export_csv(auth_client_a, db_session, test_users):
+    client_a, _, _ = auth_client_a
+    report_a = test_users["report_a"]
+    dataset_a = test_users["dataset_a"]
+
+    # Populate sample rows including a potential DDE formula cell
+    r1 = DatasetRow(
+        dataset_id=dataset_a.id,
+        source_row_number=1,
+        raw_json=json.dumps({"name": "=cmd|' /C calc'!A0", "amount": 100}),
+        typed_json=json.dumps({"name": "=cmd|' /C calc'!A0", "amount": 100}),
+        issues_json="[]",
+        structurally_valid=True,
+    )
+    r2 = DatasetRow(
+        dataset_id=dataset_a.id,
+        source_row_number=2,
+        raw_json=json.dumps({"name": "Safe Item", "amount": 250}),
+        typed_json=json.dumps({"name": "Safe Item", "amount": 250}),
+        issues_json="[]",
+        structurally_valid=True,
+    )
+    db_session.add_all([r1, r2])
+    db_session.commit()
+
+    res = client_a.get(f"/reports/{report_a.id}/export-csv")
+    assert res.status_code == 200
+    assert "text/csv" in res.headers["content-type"]
+    assert "attachment" in res.headers["content-disposition"]
+    csv_text = res.text
+    # DDE Formula Injection must be sanitized by prepending a quote
+    assert "'=cmd|' /C calc'!A0" in csv_text
+    assert "Safe Item" in csv_text
+

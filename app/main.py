@@ -15,6 +15,7 @@ from app.web.routes_auth import router as auth_router
 from app.web.routes_datasets import router as datasets_router
 from app.web.routes_reports import router as reports_router
 from app.web.routes_shares import router as shares_router
+from app.middleware.rate_limit import RateLimitMiddleware
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
@@ -23,6 +24,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     - Prevents framing/clickjacking
     - Restricts referrer leakage
     - Enforces no-store cache control on authenticated responses
+    - Implements strict Content-Security-Policy (CSP)
     """
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
@@ -30,9 +32,20 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none';"
+        )
 
         # Apply no-store cache control for private endpoints and shared links
-        if "prooflytics_session" in request.cookies or request.url.path.startswith(("/datasets", "/reports", "/api", "/share")):
+        if "prooflytics_session" in request.cookies or request.url.path.startswith(("/datasets", "/reports", "/api", "/share", "/s/")):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
 
@@ -52,8 +65,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan
     )
 
-    # Add security middleware
+    # Add security middlewares (LIFO order: RateLimit checks before SecurityHeaders wraps)
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware)
 
     # Mount static assets if directory exists
     static_dir = os.path.join(os.path.dirname(__file__), "static")

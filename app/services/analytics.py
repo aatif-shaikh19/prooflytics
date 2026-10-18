@@ -97,7 +97,7 @@ def evaluate_block(
                 if op == "COUNT":
                     if count_mode == "count_non_null" and (val is None or str(val).strip() == ""):
                         is_invalid_for_op = True
-                elif op in ("SUM", "AVG", "MIN", "MAX"):
+                elif op in ("SUM", "AVG", "MIN", "MAX", "MEDIAN", "STDDEV"):
                     if val is None or not isinstance(val, (int, float)):
                         is_invalid_for_op = True
 
@@ -163,6 +163,16 @@ def evaluate_block(
                 primary_value = round(float(val), 2) if val is not None else None
                 formatted_value = f"{primary_value:,.2f}" if primary_value is not None else "N/A"
                 polars_expr_str = f"df.select(pl.col('{target_col}').mean())"
+            elif op == "MEDIAN":
+                val = df.select(pl.col(target_col).median()).item()
+                primary_value = round(float(val), 2) if val is not None else None
+                formatted_value = f"{primary_value:,.2f}" if primary_value is not None else "N/A"
+                polars_expr_str = f"df.select(pl.col('{target_col}').median())"
+            elif op == "STDDEV":
+                val = df.select(pl.col(target_col).std()).item()
+                primary_value = round(float(val), 2) if val is not None else None
+                formatted_value = f"{primary_value:,.2f}" if primary_value is not None else "N/A"
+                polars_expr_str = f"df.select(pl.col('{target_col}').std())"
             elif op == "MIN":
                 val = df.select(pl.col(target_col).min()).item()
                 primary_value = round(float(val), 2) if val is not None else None
@@ -185,13 +195,21 @@ def evaluate_block(
             # Group breakdown if grouped metric
             if group_col and target_col and not df.is_empty() and group_col in df.columns and target_col in df.columns:
                 group_breakdown = []
-                agg_expr = pl.col(target_col).sum() if op == "SUM" else (
-                    pl.col(target_col).mean() if op == "AVG" else (
-                        pl.col(target_col).min() if op == "MIN" else (
-                            pl.col(target_col).max() if op == "MAX" else pl.col(target_col).count()
-                        )
-                    )
-                )
+                if op == "SUM":
+                    agg_expr = pl.col(target_col).sum()
+                elif op == "AVG":
+                    agg_expr = pl.col(target_col).mean()
+                elif op == "MEDIAN":
+                    agg_expr = pl.col(target_col).median()
+                elif op == "STDDEV":
+                    agg_expr = pl.col(target_col).std()
+                elif op == "MIN":
+                    agg_expr = pl.col(target_col).min()
+                elif op == "MAX":
+                    agg_expr = pl.col(target_col).max()
+                else:
+                    agg_expr = pl.col(target_col).count()
+
                 grouped_df = df.group_by(group_col).agg([
                     agg_expr.alias("agg_val"),
                     pl.len().alias("count_val")

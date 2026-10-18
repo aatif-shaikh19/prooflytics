@@ -175,3 +175,28 @@ def test_security_headers_enforced_everywhere(client, auth_client_a, db_session,
     assert res_login.headers["X-Content-Type-Options"] == "nosniff"
     assert res_login.headers["X-Frame-Options"] == "DENY"
     assert res_login.headers["Referrer-Policy"] == "no-referrer"
+    assert "Content-Security-Policy" in res_login.headers
+    assert "Permissions-Policy" in res_login.headers
+
+def test_rate_limiting_defense(client):
+    # Simulate high-frequency login POSTs from the same IP
+    custom_ip = "198.51.100.42"
+    headers = {"X-Forwarded-For": custom_ip}
+
+    # Hit /login POST repeatedly
+    rate_limited = False
+    for i in range(35):
+        res = client.post(
+            "/login",
+            data={"email": "attacker@example.com", "password": "wrong"},
+            headers=headers,
+        )
+        if res.status_code == 429:
+            rate_limited = True
+            assert "Retry-After" in res.headers
+            assert "X-RateLimit-Limit" in res.headers
+            assert res.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+            break
+
+    assert rate_limited, "Rate limiter should have triggered 429 Too Many Requests after 30 attempts"
+

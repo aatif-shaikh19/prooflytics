@@ -24,7 +24,7 @@ class BlockConfig(BaseModel):
     kind: Literal["metric", "bar_chart", "line_chart", "top_n_table", "note"]
     title: Optional[str] = None
     column: Optional[str] = None
-    op: Optional[Literal["SUM", "AVG", "COUNT", "MIN", "MAX"]] = "SUM"
+    op: Optional[Literal["SUM", "AVG", "COUNT", "MIN", "MAX", "MEDIAN", "STDDEV"]] = "SUM"
     count_mode: Optional[Literal["count_non_null", "count_rows"]] = "count_non_null"
     group_by_column: Optional[str] = None
     sort_order: Optional[Literal["asc", "desc"]] = "desc"

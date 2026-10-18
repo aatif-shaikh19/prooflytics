@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.db.models import Dataset, Report, SessionRecord, User
+from app.db.models import Dataset, DatasetRow, Report, ReportBlock, SessionRecord, User
 from app.db.session import get_db
 from app.schemas.analytics import ReportFilter
 from app.services.reports import (
@@ -449,4 +449,115 @@ def revoke_share_link_action(
         url=f"/reports/{report.id}#shares",
         status_code=status.HTTP_303_SEE_OTHER,
     )
+
+@router.post("/{report_id}/clone", response_class=RedirectResponse)
+def clone_report_action(
+    report: Report = Depends(get_user_report),
+    user: User = Depends(require_authenticated_user),
+    db: Session = Depends(get_db),
+    _: None = Depends(require_csrf),
+):
+    """Clone an existing report and all its blocks for rapid iteration."""
+    cloned_report = Report(
+        owner_id=user.id,
+        dataset_id=report.dataset_id,
+        title=f"Copy of {report.title}",
+        filter_json=report.filter_json,
+    )
+    db.add(cloned_report)
+    db.commit()
+    db.refresh(cloned_report)
+
+    for block in report.blocks:
+        cloned_block = ReportBlock(
+            report_id=cloned_report.id,
+            kind=block.kind,
+            position=block.position,
+            config_json=block.config_json,
+        )
+        db.add(cloned_block)
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/reports/{cloned_report.id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+@router.get("/{report_id}/export-csv")
+def export_report_csv_action(
+    report: Report = Depends(get_user_report),
+    user: User = Depends(require_authenticated_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Export dataset rows included in this report (filtered according to report filter)
+    as an RFC 4180 CSV attachment, sanitizing potential Excel formula injections.
+    """
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    # Parse active filter
+    try:
+        filter_dict = json.loads(report.filter_json or "{}")
+        active_filter = ReportFilter(**filter_dict)
+    except Exception:
+        active_filter = ReportFilter()
+
+    # Load rows
+    rows = db.query(DatasetRow).filter(
+        DatasetRow.dataset_id == report.dataset_id,
+        DatasetRow.structurally_valid == True
+    ).order_by(DatasetRow.source_row_number).all()
+
+    # Filter rows according to active_filter
+    included_rows = []
+    headers_set = set()
+    for r in rows:
+        typed = json.loads(r.typed_json or "{}")
+        # Check date filter
+        if active_filter.date_column:
+            val = typed.get(active_filter.date_column)
+            if val is None or str(val) < (active_filter.start_date or "") or (active_filter.end_date and str(val) > active_filter.end_date):
+                continue
+        # Check category filter
+        if active_filter.category_column and active_filter.selected_categories:
+            val = typed.get(active_filter.category_column)
+            if str(val) not in active_filter.selected_categories:
+                continue
+        included_rows.append(typed)
+        headers_set.update(typed.keys())
+
+    # Build CSV output
+    output = io.StringIO()
+    headers = sorted(list(headers_set))
+    writer = csv.writer(output)
+    writer.writerow(headers)
+
+    for row in included_rows:
+        row_vals = []
+        for h in headers:
+            val = row.get(h)
+            if val is None:
+                row_vals.append("")
+            else:
+                s_val = str(val)
+                # DDE Formula Injection Sanitization: prepend ' if begins with =, +, -, @
+                if s_val and s_val[0] in ("=", "+", "-", "@", "\t", "\r"):
+                    s_val = "'" + s_val
+                row_vals.append(s_val)
+        writer.writerow(row_vals)
+
+    output.seek(0)
+    sanitized_filename = "".join(c for c in report.title if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_").lower()
+    filename = f"{sanitized_filename or 'report'}_export.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        }
+    )
+
 

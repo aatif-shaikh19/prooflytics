@@ -81,20 +81,21 @@
 
 {% block content %}
 <!-- Read-Only Public Header Banner -->
-<div class="public-banner">
-  <div>
-    <strong>Shared Report</strong> &middot; Read-only public projection
+<div class="public-banner" style="background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.2); border-radius: 8px; padding: 0.85rem 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+  <div style="display: flex; align-items: center; gap: 0.5rem; color: #93c5fd; font-weight: 600; font-size: 0.85rem;">
+    <span>🔒 Certified Read-Only Projection</span>
+    <span style="color: var(--text-dim); font-weight: 400;">&middot; Raw dataset &amp; tenant workspace isolated</span>
   </div>
-  <div style="font-size: 0.8rem; color: #60a5fa;">
-    Verified by Prooflytics &middot; Server-Side Provenance Engine
+  <div style="font-size: 0.775rem; color: #60a5fa; font-weight: 600;">
+    Server-Enforced Polars Engine &middot; Real-Time Provenance
   </div>
 </div>
 
 <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
   <div>
-    <h1 style="font-size: 2rem; margin-bottom: 0.25rem;">{{ report.title }}</h1>
+    <h1 style="font-size: 2.25rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.25rem;">{{ report.title }}</h1>
     <div style="color: var(--text-muted); font-size: 0.85rem;">
-      Published report &middot; {{ evaluated_blocks|length }} blocks &middot; Live calculations
+      Published report projection &middot; {{ evaluated_blocks|length }} blocks &middot; Live calculations
     </div>
   </div>
   <button type="button" class="btn btn-secondary btn-sm no-print" onclick="window.print()">🖨️ Print / Save PDF</button>

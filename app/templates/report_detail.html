@@ -85,13 +85,24 @@
         ({{ dataset.row_count }} rows) &middot; Blocks: {{ evaluated_blocks|length }}
       </div>
     </div>
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <!-- Export Filtered CSV -->
+      <a href="/reports/{{ report.id }}/export-csv" class="btn btn-secondary btn-sm no-print" title="Download filtered CSV data for this report">
+        📥 Export CSV
+      </a>
+      <!-- Clone Report -->
+      <form method="POST" action="/reports/{{ report.id }}/clone" style="display: inline;" class="no-print">
+        <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+        <button type="submit" class="btn btn-secondary btn-sm" title="Clone this report and all its blocks">
+          📋 Clone
+        </button>
+      </form>
       <!-- Print/Save PDF Button -->
       <button type="button" class="btn btn-secondary btn-sm no-print" onclick="window.print()">🖨️ Print / Save PDF</button>
       <!-- Delete report button -->
       <form method="POST" action="/reports/{{ report.id }}/delete" onsubmit="return confirm('Delete this entire report?');" class="no-print">
         <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
-        <button type="submit" class="btn btn-danger btn-sm">Delete Report</button>
+        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
       </form>
     </div>
   </div>
@@ -292,16 +303,18 @@
         </select>
       </div>
 
-      <!-- Operation (SUM, AVG, MIN, MAX, COUNT) -->
+      <!-- Operation (SUM, AVG, MIN, MAX, COUNT, MEDIAN, STDDEV) -->
       <div id="field_op">
         <label for="block_op">Operation</label>
         <select id="block_op" name="op"
-                style="width: 100%; padding: 0.6rem; border-radius: 6px; background: #0b1120; border: 1px solid var(--card-border); color: var(--text);">
-          <option value="SUM">SUM</option>
-          <option value="AVG">AVG</option>
-          <option value="COUNT">COUNT</option>
-          <option value="MIN">MIN</option>
-          <option value="MAX">MAX</option>
+                style="width: 100%; padding: 0.6rem; border-radius: 6px; background: #0c0c0e; border: 1px solid var(--card-border); color: var(--text);">
+          <option value="SUM">SUM (Total)</option>
+          <option value="AVG">AVG (Mean Average)</option>
+          <option value="MEDIAN">MEDIAN (50th Percentile)</option>
+          <option value="STDDEV">STDDEV (Standard Deviation)</option>
+          <option value="COUNT">COUNT (Frequency)</option>
+          <option value="MIN">MIN (Minimum)</option>
+          <option value="MAX">MAX (Maximum)</option>
         </select>
       </div>
 

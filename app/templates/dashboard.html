@@ -1,90 +1,128 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard — Prooflytics{% endblock %}
+{% block title %}Workspace Dashboard — Prooflytics{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 2rem;">
-  <h1 style="font-size: 1.75rem; margin-bottom: 0.25rem;">Workspace Dashboard</h1>
-  <p style="color: var(--text-muted);">Signed in as <strong>{{ current_user.email }}</strong></p>
+<!-- Top Header & Search Bar -->
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1.5rem;">
+  <div>
+    <h1 style="font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.35rem;">Workspace Overview</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">
+      Authenticated tenant: <span style="color: var(--text); font-weight: 600;">{{ current_user.email }}</span>
+    </p>
+  </div>
+  <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+    <input type="text" id="dashboardSearch" placeholder="🔍 Filter datasets & reports..." onkeyup="filterDashboard()" style="max-width: 260px; padding: 0.55rem 0.85rem; font-size: 0.85rem;" aria-label="Filter datasets and reports">
+    <a href="/datasets/upload" class="btn btn-primary btn-sm">+ Upload CSV</a>
+    <a href="/reports/create" class="btn btn-secondary btn-sm">+ New Report</a>
+  </div>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-  <!-- Datasets Card -->
+<!-- Quick Stats Bar -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+  <div class="card" style="margin-bottom: 0; padding: 1.25rem;">
+    <div style="font-size: 0.775rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Datasets Ingested</div>
+    <div style="font-size: 1.75rem; font-weight: 800; margin-top: 0.35rem; color: #ffffff;">{{ datasets|length }}</div>
+    <div style="font-size: 0.75rem; color: var(--success); margin-top: 0.25rem;">● Audited &amp; Profiled</div>
+  </div>
+  <div class="card" style="margin-bottom: 0; padding: 1.25rem;">
+    <div style="font-size: 0.775rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Active Reports</div>
+    <div style="font-size: 1.75rem; font-weight: 800; margin-top: 0.35rem; color: #ffffff;">{{ reports|length }}</div>
+    <div style="font-size: 0.75rem; color: #60a5fa; margin-top: 0.25rem;">● Live Provenance</div>
+  </div>
+  <div class="card" style="margin-bottom: 0; padding: 1.25rem;">
+    <div style="font-size: 0.775rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Total Rows Profiled</div>
+    {% set total_rows = namespace(val=0) %}
+    {% for ds in datasets %}
+      {% set total_rows.val = total_rows.val + ds.row_count %}
+    {% endfor %}
+    <div style="font-size: 1.75rem; font-weight: 800; margin-top: 0.35rem; color: #ffffff;">{{ "{:,}".format(total_rows.val) }}</div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Zero silent row drops</div>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.75rem;">
+  <!-- Datasets Column -->
   <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-      <h2 style="font-size: 1.25rem;">My Datasets</h2>
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span style="font-size: 0.85rem; color: var(--text-muted); background: #0b1120; padding: 0.2rem 0.6rem; border-radius: 999px;">
-          {{ datasets|length }}
-        </span>
-        <a href="/datasets/upload" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
-          + Upload CSV
-        </a>
-      </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--card-border);">
+      <h2 style="font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em;">Audited Datasets</h2>
+      <span class="badge badge-accepted">{{ datasets|length }} Total</span>
     </div>
 
     {% if datasets %}
-      <ul style="list-style: none;">
+      <ul style="list-style: none;" id="datasetsList">
         {% for dataset in datasets %}
-          <li style="padding: 0.75rem 0; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+          <li class="dashboard-item" style="padding: 0.85rem 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;">
             <div>
-              <a href="/datasets/{{ dataset.id }}" style="color: var(--text); text-decoration: none; font-weight: 500;">
+              <a href="/datasets/{{ dataset.id }}" class="item-title" style="color: #ffffff; text-decoration: none; font-weight: 600; font-size: 0.95rem;">
                 {{ dataset.name }}
               </a>
-              <div style="font-size: 0.8rem; color: var(--text-muted);">
-                {{ dataset.row_count }} rows &middot; {{ dataset.created_at.strftime('%Y-%m-%d %H:%M') }}
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                {{ "{:,}".format(dataset.row_count) }} rows &middot; {{ dataset.created_at.strftime('%Y-%m-%d %H:%M') }}
               </div>
             </div>
-            <a href="/datasets/{{ dataset.id }}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">
-              View
+            <a href="/datasets/{{ dataset.id }}" class="btn btn-secondary btn-sm">
+              Inspect &rarr;
             </a>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">
-        No datasets uploaded yet. Ingestion pipeline is ready for Phase 2.
-      </p>
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted);">
+        <p style="font-size: 0.9rem; margin-bottom: 1rem;">No datasets uploaded yet.</p>
+        <a href="/datasets/upload" class="btn btn-primary btn-sm">+ Upload Your First CSV</a>
+      </div>
     {% endif %}
   </div>
 
-  <!-- Reports Card -->
+  <!-- Reports Column -->
   <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-      <h2 style="font-size: 1.25rem;">My Reports</h2>
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span style="font-size: 0.85rem; color: var(--text-muted); background: #0b1120; padding: 0.2rem 0.6rem; border-radius: 999px;">
-          {{ reports|length }}
-        </span>
-        <a href="/reports/create" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
-          + New Report
-        </a>
-      </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--card-border);">
+      <h2 style="font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em;">Reports &amp; Lineage</h2>
+      <span class="badge badge-metric">{{ reports|length }} Composed</span>
     </div>
 
     {% if reports %}
-      <ul style="list-style: none;">
+      <ul style="list-style: none;" id="reportsList">
         {% for report in reports %}
-          <li style="padding: 0.75rem 0; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+          <li class="dashboard-item" style="padding: 0.85rem 0; border-bottom: 1px solid rgba(39, 39, 42, 0.6); display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;">
             <div>
-              <a href="/reports/{{ report.id }}" style="color: var(--text); text-decoration: none; font-weight: 500;">
+              <a href="/reports/{{ report.id }}" class="item-title" style="color: #ffffff; text-decoration: none; font-weight: 600; font-size: 0.95rem;">
                 {{ report.title }}
               </a>
-              <div style="font-size: 0.8rem; color: var(--text-muted);">
-                Dataset: {{ report.dataset.name if report.dataset else 'Unknown' }} &middot; {{ report.blocks|length }} blocks
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Dataset: <span style="color: #93c5fd;">{{ report.dataset.name if report.dataset else 'Unknown' }}</span> &middot; {{ report.blocks|length }} blocks
               </div>
             </div>
-            <a href="/reports/{{ report.id }}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">
-              Open
-            </a>
+            <div style="display: flex; gap: 0.4rem; align-items: center;">
+              <a href="/reports/{{ report.id }}" class="btn btn-secondary btn-sm">
+                Open
+              </a>
+            </div>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">
-        No reports composed yet. Report builder will be connected in Phase 4.
-      </p>
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted);">
+        <p style="font-size: 0.9rem; margin-bottom: 1rem;">No reports composed yet.</p>
+        <a href="/reports/create" class="btn btn-primary btn-sm">+ Create New Report</a>
+      </div>
     {% endif %}
   </div>
 </div>
+
+<script>
+  function filterDashboard() {
+    const query = document.getElementById('dashboardSearch').value.toLowerCase();
+    const items = document.querySelectorAll('.dashboard-item');
+    items.forEach(item => {
+      const title = item.querySelector('.item-title').textContent.toLowerCase();
+      if (title.includes(query)) {
+        item.style.display = 'flex';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  }
+</script>
 {% endblock %}

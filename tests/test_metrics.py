@@ -194,3 +194,32 @@ def test_provenance_ast_and_narrative():
     assert "Included 1" in narrative
     assert "1 structurally invalid/ragged rows" in narrative
     assert "1 rows with null or invalid values" in narrative
+
+def test_metrics_median_and_stddev():
+    # Odd count
+    rows_odd = [
+        {"typed": {"val": 10.0}, "structurally_valid": True},
+        {"typed": {"val": 20.0}, "structurally_valid": True},
+        {"typed": {"val": 30.0}, "structurally_valid": True},
+        {"typed": {"val": 40.0}, "structurally_valid": True},
+        {"typed": {"val": 50.0}, "structurally_valid": True},
+    ]
+    res_med = evaluate_block(rows_odd, BlockConfig(kind="metric", column="val", op="MEDIAN"))
+    assert res_med.primary_value == 30.0
+    assert "df.select(pl.col('val').median())" in res_med.canonical_ast.polars_expression
+
+    # Even count
+    rows_even = [
+        {"typed": {"val": 10.0}, "structurally_valid": True},
+        {"typed": {"val": 20.0}, "structurally_valid": True},
+        {"typed": {"val": 30.0}, "structurally_valid": True},
+        {"typed": {"val": 40.0}, "structurally_valid": True},
+    ]
+    res_med_even = evaluate_block(rows_even, BlockConfig(kind="metric", column="val", op="MEDIAN"))
+    assert res_med_even.primary_value == 25.0
+
+    # StdDev
+    res_std = evaluate_block(rows_odd, BlockConfig(kind="metric", column="val", op="STDDEV"))
+    assert res_std.primary_value == 15.81
+    assert "df.select(pl.col('val').std())" in res_std.canonical_ast.polars_expression
+
