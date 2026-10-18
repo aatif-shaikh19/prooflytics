@@ -30,6 +30,7 @@ uploads/
 *.avi
 recordings/
 recording/
+tasks/
 
 # Internal agent skills & staging docs
 .agents/
