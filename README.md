@@ -143,10 +143,11 @@ If dataset volume increased by two orders of magnitude:
 
 | Metric / Requirement | Audit Record |
 |---|---|
-| **Total Actual Time Spent** | **70 minutes** (~1.17 hours) out of 5.5-hour hard stop. |
-| **Test Suite Coverage** | **71 passed tests** in `pytest tests/ -v` (0 failures, 1 deprecation warning from Starlette). |
+| **Total Actual Time Spent** | **85 minutes** (~1.42 hours) out of 5.5-hour hard stop. |
+| **Test Suite Coverage** | **75 passed tests** in `pytest tests/ -v` (0 failures, 1 deprecation warning from Starlette). |
 | **Genuine AI Mistakes Caught** | Documented truthfully in [docs/AI_USAGE.md](file:///C:/Users/Aatif/Downloads/Prooflytics/docs/AI_USAGE.md):<br>1. Starlette 0.38+ deprecations and test runner import paths.<br>2. Shared test client fixture mutation in dual-tenant tests.<br>3. Filter evaluation applying to text note blocks.<br>4. Legacy string column schemas triggering `AttributeError` on `.get("type")`.<br>5. Polars `pl.col(None)` TypeError when target column was omitted on metric blocks. |
-| **Scope Discipline & Cuts** | Explicitly adhered to ByteVox PRD § 6 & § 7: Forbidden features (heavy server-side PDF generator libraries, team comments, real-time collaboration) were rejected to maintain zero-bloat security and compliance. Implemented approved single enhancement (type-driven suggested charts with human confirmation) and native browser `@media print` PDF support. |
+| **Security & Hardening** | Applied `/security-and-hardening`: in-memory sliding-window rate limiting on `/login` and `/datasets/upload`, structured JSON security audit logger, DDE formula injection sanitization on exports, strict CSP, and Permissions-Policy headers. |
+| **Advanced Features** | Implemented `/api-and-interface-design` and `/frontend-ui-engineering`: Median & Standard Deviation calculations, one-click report cloning, filtered CSV streaming export, instant dashboard client search, and modern dark UI redesign with Plus Jakarta Sans and JetBrains Mono. |
 
 ---
 
@@ -156,11 +157,11 @@ Follow this exact recording sequence (using OBS, Loom, or Screen Recorder):
 
 | Timestamp | Action | Narration & Key Inspection Points |
 |---|---|---|
-| **0:00 – 0:35** | **Login & Messy CSV Ingestion** | Sign in as `user_a@example.com` / `Password123!`. Navigate to "Upload Dataset" and upload `fixtures/synthetic_messy.csv`. Highlight that upload validation checks size and UTF-8 encoding. |
+| **0:00 – 0:35** | **Login & Messy CSV Ingestion** | Sign in as `user_a@example.com` / `Password123!`. Navigate to "Upload Dataset" and upload `fixtures/synthetic_messy.csv`. Highlight that upload validation checks size, UTF-8 encoding, and is protected by sliding-window rate limiting. |
 | **0:35 – 1:15** | **Data Profiling & Quality Audit** | Show inferred types (`id` number, `amount` number, `category` category, `order_date` date). Point out that 2,500 total rows are reconciled with zero silent drops: show missing counts, unparseable numeric cells, and ragged rows preserved with original line numbers. |
-| **1:15 – 2:00** | **Report Composition & Suggested Charts** | Click "+ Create Report with Suggested Blocks" to demonstrate the deterministic type-driven suggestion engine with human confirmation. Add a text note and top-N ranking table. Reorder blocks using keyboard-accessible Up/Down buttons. |
+| **1:15 – 2:00** | **Report Composition & Advanced Metrics** | Click "+ Create Report with Suggested Blocks" or compose manually. Show KPI blocks including **Median** and **Standard Deviation** alongside Sum/Avg. Reorder blocks using keyboard-accessible Up/Down buttons. Test **Clone Report** to create a duplicate report. |
 | **2:00 – 2:40** | **Filters & "How Was This Calculated?" Modal** | Set a global date range or category filter (`Hardware`); show that all data blocks update simultaneously while notes stay intact. Click a KPI number to open the Provenance modal: show the exact Polars AST formula, disjoint row accounting (`total = rejected + filtered + invalid + included`), and per-group counts. |
-| **2:40 – 3:15** | **Secure Anonymous Sharing** | Create an expiring share link (e.g., 24h). Copy link and open in an Incognito window. Show that the anonymous viewer sees live charts and calculations, but has zero access to dataset editing, raw CSV rows, or tenant metadata. |
+| **2:40 – 3:15** | **Secure Anonymous Sharing & Export** | Create an expiring share link (e.g., 24h). Copy link and open in an Incognito window. Show that the anonymous viewer sees live charts and calculations, but has zero access to dataset editing, raw CSV rows, or tenant metadata. Click **Export CSV** to demonstrate filtered CSV download with formula injection defense. |
 | **3:15 – 3:45** | **Revocation & Error Handling** | Back in owner window, click "Revoke". Refresh the Incognito link to show an immediate HTTP 410 "Link Expired or Revoked" screen. Demonstrate "🖨️ Print / Save PDF" cleanly formatting the page for export. |
 
 ---
@@ -169,12 +170,13 @@ Follow this exact recording sequence (using OBS, Loom, or Screen Recorder):
 
 - [x] Application runnable via documented standard commands (`python scripts/seed.py`, `pytest`, `uvicorn`).
 - [x] Synthetic messy CSV (`fixtures/synthetic_messy.csv`) with reconciled ground-truth totals (`fixtures/expected_results.json`).
-- [x] 71 automated tests passing across 8 test suites.
+- [x] 75 automated tests passing across 8 test suites.
 - [x] Environment configuration sample (`.env.example`).
 - [x] Complete, <=2-page 'How my report builder works' covering ingestion, data path, provenance, security, and 100x scale.
 - [x] Truthful time log (`docs/BUILD_LOG.md`) and genuine AI mistakes log (`docs/AI_USAGE.md`).
 - [x] 3–4 minute recorded demo plan and script.
-- [x] Single approved optional enhancement (deterministic suggested charts with human confirmation).
+- [x] Advanced features (Median/Stddev math, report cloning, filtered CSV export, live dashboard search).
+- [x] Full security hardening (sliding-window rate limiting, CSV formula injection defense, structured audit logs, CSP headers).
 
 ### Sample Submission Email Draft
 
