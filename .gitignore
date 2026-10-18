@@ -1,16 +1,50 @@
+# Python bytecode & cache
 __pycache__/
+*.py[cod]
+*$py.class
 .pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
 .venv/
+env/
+venv/
+
+# Environment variables & local secrets
 .env
 .env.*
 !.env.example
+
+# Database & local storage
 *.sqlite
+*.sqlite3
 *.db
 uploads/
+
+# Media & recordings (OBS, Screen recordings, video artifacts)
+*.mp4
+*.webm
+*.mkv
+*.mov
+*.avi
+recordings/
+recording/
+
+# Internal agent skills & staging docs
+.agents/
+docs/DEMO.md
+docs/LIVE_WALKTHROUGH.md
+
+# Build artifacts & package distribution
 .dist/
 dist/
-*.pyc
-.coverage
-htmlcov/
+build/
+*.egg-info/
 node_modules/
+
+# Operating System & Editor
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
