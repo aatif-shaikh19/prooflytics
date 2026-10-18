@@ -1,0 +1,552 @@
+{% extends "base.html" %}
+
+{% block title %}{{ report.title }} — Prooflytics{% endblock %}
+
+{% block head %}
+<style>
+  .block-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .block-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .btn-sm {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  .metric-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0.5rem 0;
+  }
+  .stat-grid-sm {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+  .stat-box {
+    background: #0b1120;
+    border: 1px solid var(--card-border);
+    padding: 0.5rem;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 0.8rem;
+  }
+  .stat-box-num {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-top: 0.2rem;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  pre {
+    background: #0b1120;
+    border: 1px solid var(--card-border);
+    padding: 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #93c5fd;
+    overflow-x: auto;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Report Header Bar -->
+<div style="margin-bottom: 1.5rem;">
+  <a href="/" style="color: var(--primary); text-decoration: none; font-size: 0.9rem;">&larr; Back to Dashboard</a>
+  <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 1rem; margin-top: 0.5rem;">
+    <div>
+      <h1 style="font-size: 1.85rem; display: inline-block;">{{ report.title }}</h1>
+      <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">
+        Dataset: <a href="/datasets/{{ dataset.id }}" style="color: #60a5fa; text-decoration: none; font-weight: 500;">{{ dataset.name }}</a>
+        ({{ dataset.row_count }} rows) &middot; Blocks: {{ evaluated_blocks|length }}
+      </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <!-- Print/Save PDF Button -->
+      <button type="button" class="btn btn-secondary btn-sm no-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <!-- Delete report button -->
+      <form method="POST" action="/reports/{{ report.id }}/delete" onsubmit="return confirm('Delete this entire report?');" class="no-print">
+        <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+        <button type="submit" class="btn btn-danger btn-sm">Delete Report</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Global Report Filter Bar -->
+<div class="card" style="background: #0b1120;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+    <h2 style="font-size: 1rem; color: var(--text); font-weight: 600;">
+      🔍 Report-Level Global Filters
+      {% if active_filter and active_filter.is_active() %}
+        <span class="badge badge-accepted" style="margin-left: 0.5rem;">ACTIVE</span>
+      {% else %}
+        <span class="badge badge-note" style="margin-left: 0.5rem;">NO FILTER</span>
+      {% endif %}
+    </h2>
+    <span style="font-size: 0.8rem; color: var(--text-muted);">Applies across all data blocks</span>
+  </div>
+
+  <form method="POST" action="/reports/{{ report.id }}/filter" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: end;">
+    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+
+    <!-- Date Range Filter -->
+    <div>
+      <label for="date_column" style="font-size: 0.8rem;">Date Column</label>
+      <select id="date_column" name="date_column" style="width: 100%; padding: 0.5rem; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text);">
+        <option value="">-- None --</option>
+        {% for col in date_columns %}
+          <option value="{{ col }}" {% if active_filter.date_column == col %}selected{% endif %}>{{ col }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label for="start_date" style="font-size: 0.8rem;">Start Date (YYYY-MM-DD)</label>
+      <input type="text" id="start_date" name="start_date" value="{{ active_filter.start_date or '' }}" placeholder="2024-01-01" style="padding: 0.5rem;">
+    </div>
+
+    <div>
+      <label for="end_date" style="font-size: 0.8rem;">End Date (YYYY-MM-DD)</label>
+      <input type="text" id="end_date" name="end_date" value="{{ active_filter.end_date or '' }}" placeholder="2024-12-31" style="padding: 0.5rem;">
+    </div>
+
+    <!-- Category Filter -->
+    <div>
+      <label for="category_column" style="font-size: 0.8rem;">Category Column</label>
+      <select id="category_column" name="category_column" style="width: 100%; padding: 0.5rem; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text);">
+        <option value="">-- None --</option>
+        {% for col in category_columns %}
+          <option value="{{ col }}" {% if active_filter.category_column == col %}selected{% endif %}>{{ col }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label for="selected_categories" style="font-size: 0.8rem;">Selected Categories (comma-separated)</label>
+      <input type="text" id="selected_categories" name="selected_categories"
+             value="{{ active_filter.selected_categories | join(', ') if active_filter.selected_categories else '' }}"
+             placeholder="e.g. Engineering, Sales" style="padding: 0.5rem;">
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="submit" class="btn btn-primary btn-sm" style="flex: 1;">Apply</button>
+      <button type="submit" name="clear" value="true" class="btn btn-secondary btn-sm">Clear</button>
+    </div>
+  </form>
+</div>
+
+<!-- Anonymous Share Links Card -->
+<div class="card" id="shares" style="background: #0f172a; border-color: #334155;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+    <h2 style="font-size: 1rem; color: var(--text); font-weight: 600;">
+      🔗 Anonymous Share Links
+      <span class="badge badge-accepted" style="margin-left: 0.5rem;">READ-ONLY PROJECTION</span>
+    </h2>
+    <span style="font-size: 0.8rem; color: var(--text-muted);">Cryptographically hashed &middot; Live report semantics</span>
+  </div>
+
+  {% if created_token %}
+    <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
+      <div style="font-size: 0.9rem; font-weight: 700; color: #6ee7b7; margin-bottom: 0.25rem;">
+        ✓ New Share Link Generated Successfully!
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text); margin-bottom: 0.5rem;">
+        Copy this link now. The server stores only its SHA-256 cryptographic hash and cannot show the raw bearer token again:
+      </p>
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        <input type="text" id="share-link-input" readonly value="/share/{{ created_token }}"
+               style="flex: 1; min-width: 260px; padding: 0.5rem; background: #0b1120; border: 1px solid var(--card-border); color: #93c5fd; font-family: monospace; border-radius: 4px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(window.location.origin + '/share/{{ created_token }}'); alert('Share link copied to clipboard!');">
+          Copy Full Link
+        </button>
+        <a href="/share/{{ created_token }}" target="_blank" class="btn btn-primary btn-sm">
+          Open Shared View &rarr;
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Generate Link Form -->
+  <form method="POST" action="/reports/{{ report.id }}/shares" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1rem;">
+    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+    <div>
+      <label for="expires_days" style="font-size: 0.8rem;">Expiration</label>
+      <select id="expires_days" name="expires_days" style="padding: 0.45rem; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text);">
+        <option value="1">1 Day</option>
+        <option value="7" selected>7 Days (Recommended)</option>
+        <option value="30">30 Days</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary btn-sm">
+      + Generate Share Link
+    </button>
+  </form>
+
+  <!-- Existing Shares Table -->
+  {% if shares %}
+    <div class="table-responsive">
+      <table style="font-size: 0.85rem;">
+        <thead>
+          <tr>
+            <th>Token Digest</th>
+            <th>Expires At</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in shares %}
+            <tr>
+              <td><code>sha256:{{ s.token_hash[:12] }}...</code></td>
+              <td>{{ s.expires_at.strftime('%Y-%m-%d %H:%M') }} UTC</td>
+              <td>
+                {% if s.revoked_at %}
+                  <span class="badge badge-warning">Revoked</span>
+                {% elif s.expires_at < now %}
+                  <span class="badge badge-note">Expired</span>
+                {% else %}
+                  <span class="badge badge-accepted">Active</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if not s.revoked_at and s.expires_at >= now %}
+                  <form method="POST" action="/reports/{{ report.id }}/shares/{{ s.id }}/revoke" style="display: inline;" onsubmit="return confirm('Immediately revoke this share link?');">
+                    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+                    <button type="submit" class="btn btn-danger btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                      Revoke
+                    </button>
+                  </form>
+                {% else %}
+                  <span style="color: var(--text-muted); font-size: 0.8rem;">Inactive</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+      No share links created yet. Generate one above to securely share a read-only projection.
+    </p>
+  {% endif %}
+</div>
+
+<!-- Add Block Toolbar -->
+<div class="card">
+  <h2 style="font-size: 1.1rem; margin-bottom: 1rem;">+ Add Report Block</h2>
+  <form method="POST" action="/reports/{{ report.id }}/blocks" id="add-block-form">
+    <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+      <div>
+        <label for="block_kind">Block Type</label>
+        <select id="block_kind" name="kind" required onchange="toggleBlockFields(this.value)"
+                style="width: 100%; padding: 0.6rem; border-radius: 6px; background: #0b1120; border: 1px solid var(--card-border); color: var(--text);">
+          <option value="metric">Metric (Summary Number)</option>
+          <option value="bar_chart">Bar Chart (Category Split)</option>
+          <option value="line_chart">Line Chart (Trend over Time)</option>
+          <option value="top_n_table">Top-N Table</option>
+          <option value="note">Text Note</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="block_title">Title</label>
+        <input type="text" id="block_title" name="title" placeholder="e.g. Total Revenue" required style="padding: 0.6rem;">
+      </div>
+
+      <!-- Target Column (for numeric / metric / charts) -->
+      <div id="field_column">
+        <label for="block_column">Target Column</label>
+        <select id="block_column" name="column"
+                style="width: 100%; padding: 0.6rem; border-radius: 6px; background: #0b1120; border: 1px solid var(--card-border); color: var(--text);">
+          {% for col in all_columns %}
+            <option value="{{ col.name }}">{{ col.name }} ({{ col.type }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Operation (SUM, AVG, MIN, MAX, COUNT) -->
+      <div id="field_op">
+        <label for="block_op">Operation</label>
+        <select id="block_op" name="op"
+                style="width: 100%; padding: 0.6rem; border-radius: 6px; background: #0b1120; border: 1px solid var(--card-border); color: var(--text);">
+          <option value="SUM">SUM</option>
+          <option value="AVG">AVG</option>
+          <option value="COUNT">COUNT</option>
+          <option value="MIN">MIN</option>
+          <option value="MAX">MAX</option>
+        </select>
+      </div>
+
+      <!-- Group By Column (for bar charts or grouped metric) -->
+      <div id="field_group">
+        <label for="block_group">Group By Column</label>
+        <select id="block_group" name="group_by_column"
+                style="width: 100%; padding: 0.6rem; border-radius: 6px; background: #0b1120; border: 1px solid var(--card-border); color: var(--text);">
+          <option value="">-- None --</option>
+          {% for col in all_columns %}
+            <option value="{{ col.name }}">{{ col.name }} ({{ col.type }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Limit (for table / charts) -->
+      <div id="field_limit">
+        <label for="block_limit">Limit (Rows / Points)</label>
+        <input type="number" id="block_limit" name="limit" value="10" min="1" max="100" style="padding: 0.6rem;">
+      </div>
+    </div>
+
+    <!-- Note Textarea (for note blocks) -->
+    <div id="field_note" style="display: none; margin-bottom: 1rem;">
+      <label for="block_note_text">Note Content (Markdown / Text)</label>
+      <textarea id="block_note_text" name="note_text" rows="3" placeholder="Enter notes or contextual commentary..."
+                style="width: 100%; padding: 0.75rem; border-radius: 6px; background: #0b1120; border: 1px solid var(--card-border); color: var(--text);"></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-sm">+ Add Block</button>
+  </form>
+</div>
+
+<!-- Rendered Blocks List -->
+<div>
+  {% if evaluated_blocks %}
+    {% for block, calc in evaluated_blocks %}
+      <div class="block-card" id="block-{{ block.id }}">
+        <!-- Block Card Header -->
+        <div class="block-header">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-weight: 700; color: var(--text-muted); font-size: 0.85rem;">#{{ loop.index }}</span>
+            <span class="badge badge-{{ block.kind }}">{{ block.kind }}</span>
+            <h3 style="font-size: 1.15rem; margin: 0;">{{ block.title or 'Untitled Block' }}</h3>
+          </div>
+
+          <!-- Up/Down Reorder and Delete Actions -->
+          <div class="block-actions">
+            <!-- Move Up -->
+            <form method="POST" action="/reports/{{ report.id }}/blocks/{{ block.id }}/move" style="display: inline;">
+              <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+              <input type="hidden" name="direction" value="up">
+              <button type="submit" class="btn btn-secondary btn-sm" title="Move Up (Keyboard accessible)" {% if loop.first %}disabled style="opacity: 0.3;"{% endif %}>
+                ▲ Up
+              </button>
+            </form>
+
+            <!-- Move Down -->
+            <form method="POST" action="/reports/{{ report.id }}/blocks/{{ block.id }}/move" style="display: inline;">
+              <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+              <input type="hidden" name="direction" value="down">
+              <button type="submit" class="btn btn-secondary btn-sm" title="Move Down (Keyboard accessible)" {% if loop.last %}disabled style="opacity: 0.3;"{% endif %}>
+                ▼ Down
+              </button>
+            </form>
+
+            <!-- Delete Block -->
+            <form method="POST" action="/reports/{{ report.id }}/blocks/{{ block.id }}/delete" onsubmit="return confirm('Remove this block?');" style="display: inline;">
+              <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+              <button type="submit" class="btn btn-danger btn-sm" title="Delete Block">✕</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Block Content Area -->
+        <div style="margin: 1rem 0;">
+          {% if block.kind == 'metric' %}
+            <div class="metric-value">{{ calc.formatted_value }}</div>
+            <div style="color: var(--text-muted); font-size: 0.85rem;">
+              {{ calc.human_formula }} &middot; {{ calc.row_accounting.included }} included records
+            </div>
+
+            {% if calc.group_breakdown %}
+              <div style="margin-top: 1rem;" class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Group</th>
+                      <th>Value</th>
+                      <th>Records</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for g in calc.group_breakdown %}
+                      <tr>
+                        <td style="font-weight: 600;">{{ g.group_key }}</td>
+                        <td>{{ g.value }}</td>
+                        <td>{{ g.included_count }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% endif %}
+
+          {% elif block.kind == 'bar_chart' %}
+            <div style="height: 280px; position: relative;">
+              <canvas data-chart='{{ calc.chart_data | tojson }}' data-chart-type="bar"></canvas>
+            </div>
+
+          {% elif block.kind == 'line_chart' %}
+            <div style="height: 280px; position: relative;">
+              <canvas data-chart='{{ calc.chart_data | tojson }}' data-chart-type="line"></canvas>
+            </div>
+
+          {% elif block.kind == 'top_n_table' %}
+            {% if calc.table_data and calc.table_data.rows %}
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      {% for h in calc.table_data.headers %}
+                        <th>{{ h }}</th>
+                      {% endfor %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for r in calc.table_data.rows %}
+                      <tr>
+                        {% for cell in r %}
+                          <td>{{ cell }}</td>
+                        {% endfor %}
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p style="color: var(--text-muted); font-size: 0.85rem;">No matching rows.</p>
+            {% endif %}
+
+          {% elif block.kind == 'note' %}
+            <div style="white-space: pre-wrap; font-size: 0.95rem; color: var(--text); background: #0b1120; padding: 1rem; border-radius: 6px;">
+              {{ calc.primary_value }}
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Provenance Trigger -->
+        <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openModal('prov-modal-{{ block.id }}')">
+            🔍 How was this calculated?
+          </button>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">
+            Engine: <code>Polars</code> (Server-side)
+          </span>
+        </div>
+
+        <!-- Accessible Provenance Modal Dialog -->
+        <div id="prov-modal-{{ block.id }}" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title-{{ block.id }}">
+          <div class="modal-dialog">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.5rem;">
+              <h3 id="modal-title-{{ block.id }}" style="font-size: 1.25rem; margin: 0;">
+                Calculation Provenance &amp; Lineage
+              </h3>
+              <button type="button" class="btn btn-secondary btn-sm modal-close" onclick="closeModal('prov-modal-{{ block.id }}')">✕</button>
+            </div>
+
+            <!-- Formula & Narrative -->
+            <div style="margin-bottom: 1rem;">
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">HUMAN FORMULA</div>
+              <div style="font-size: 1.1rem; font-weight: 700; color: #60a5fa;">{{ calc.human_formula }}</div>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">NARRATIVE EXPLANATION</div>
+              <p style="font-size: 0.9rem; line-height: 1.5;">{{ calc.narrative_explanation }}</p>
+            </div>
+
+            <!-- Disjoint Row Accounting Breakdown -->
+            <div style="margin-bottom: 1rem;">
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">ROW ACCOUNTING RECONCILIATION</div>
+              <div class="stat-grid-sm">
+                <div class="stat-box">
+                  <div style="color: var(--text-muted);">TOTAL</div>
+                  <div class="stat-box-num">{{ calc.row_accounting.total_rows }}</div>
+                </div>
+                <div class="stat-box">
+                  <div style="color: #6ee7b7;">INCLUDED</div>
+                  <div class="stat-box-num" style="color: #10b981;">{{ calc.row_accounting.included }}</div>
+                </div>
+                <div class="stat-box">
+                  <div style="color: #fde68a;">FILTERED</div>
+                  <div class="stat-box-num" style="color: #f59e0b;">{{ calc.row_accounting.filtered_out }}</div>
+                </div>
+                <div class="stat-box">
+                  <div style="color: #fca5a5;">INVALID OP</div>
+                  <div class="stat-box-num" style="color: #ef4444;">{{ calc.row_accounting.invalid_for_operation }}</div>
+                </div>
+                <div class="stat-box">
+                  <div style="color: #fca5a5;">RAGGED</div>
+                  <div class="stat-box-num" style="color: #ef4444;">{{ calc.row_accounting.structurally_rejected }}</div>
+                </div>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">
+                <code>{{ calc.row_accounting.total_rows }} total = {{ calc.row_accounting.included }} included + {{ calc.row_accounting.filtered_out }} filtered + {{ calc.row_accounting.invalid_for_operation }} invalid + {{ calc.row_accounting.structurally_rejected }} rejected</code>
+              </div>
+            </div>
+
+            <!-- Exact Executed Polars AST Specification -->
+            <div>
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">CANONICAL EXECUTED AST (POLARS)</div>
+              <pre><code>{{ calc.canonical_ast.model_dump_json(indent=2) }}</code></pre>
+            </div>
+
+            <div style="margin-top: 1.5rem; text-align: right;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('prov-modal-{{ block.id }}')">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="card" style="text-align: center; padding: 3rem 1.5rem;">
+      <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem;">No blocks in this report yet</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 450px; margin: 0 auto 1.5rem;">
+        Use the form above to add summary metrics, bar charts, line trends, top-N tables, or explanatory text notes.
+      </p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function toggleBlockFields(kind) {
+  const isNote = kind === 'note';
+  const isTable = kind === 'top_n_table';
+
+  document.getElementById('field_column').style.display = isNote ? 'none' : 'block';
+  document.getElementById('field_op').style.display = (isNote || isTable) ? 'none' : 'block';
+  document.getElementById('field_group').style.display = (isNote || isTable) ? 'none' : 'block';
+  document.getElementById('field_limit').style.display = isNote ? 'none' : 'block';
+  document.getElementById('field_note').style.display = isNote ? 'block' : 'none';
+}
+</script>
+{% endblock %}

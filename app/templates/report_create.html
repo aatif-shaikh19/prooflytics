@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Create Report — Prooflytics{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 2rem auto;">
+  <div style="margin-bottom: 1.5rem;">
+    <a href="/" style="color: var(--primary); text-decoration: none; font-size: 0.9rem;">&larr; Back to Dashboard</a>
+    <h1 style="font-size: 1.75rem; margin-top: 0.5rem;">Create New Report</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">
+      Bind a report to one of your uploaded datasets to compose metrics, charts, and tables.
+    </p>
+  </div>
+
+  {% if error %}
+    <div class="alert alert-danger" role="alert" style="margin-bottom: 1.5rem;">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <form method="POST" action="/reports">
+      <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+
+      <div class="form-group">
+        <label for="title">Report Title</label>
+        <input type="text" id="title" name="title" placeholder="e.g. Executive Summary & KPIs" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label for="dataset_id">Source Dataset</label>
+        <select id="dataset_id" name="dataset_id" required
+                style="width: 100%; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--card-border); background-color: #0b1120; color: var(--text); font-size: 1rem;">
+          {% for ds in datasets %}
+            <option value="{{ ds.id }}">{{ ds.name }} ({{ ds.row_count }} rows)</option>
+          {% endfor %}
+        </select>
+        {% if not datasets %}
+          <small style="color: var(--danger); font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+            You have not uploaded any datasets yet. <a href="/datasets/upload" style="color: var(--primary);">Upload a CSV</a> first.
+          </small>
+        {% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%;" {% if not datasets %}disabled{% endif %}>
+        Create Report
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

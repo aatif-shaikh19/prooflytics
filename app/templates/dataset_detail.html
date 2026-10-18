@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}{{ dataset.name or 'Dataset Profile' }} — Prooflytics{% endblock %}
+
+{% block head %}
+<style>
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge-number { background-color: #1e3a8a; color: #93c5fd; }
+  .badge-date { background-color: #064e3b; color: #6ee7b7; }
+  .badge-category { background-color: #581c87; color: #d8b4fe; }
+  .badge-text { background-color: #374151; color: #d1d5db; }
+  .badge-accepted { background-color: #064e3b; color: #6ee7b7; }
+  .badge-warning { background-color: #78350f; color: #fde68a; }
+  .badge-rejected { background-color: #7f1d1d; color: #fca5a5; }
+
+  .text-warning-cell { color: #f59e0b; }
+  .text-danger-cell { color: #ef4444; font-weight: 600; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: #0b1120;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .stat-val {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-top: 0.25rem;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--card-border);
+  }
+  th {
+    background-color: #0b1120;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem;">
+  <a href="/" style="color: var(--primary); text-decoration: none; font-size: 0.9rem;">&larr; Back to Dashboard</a>
+  <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+    <h1 style="font-size: 1.75rem;">{{ dataset.name }}</h1>
+    <span style="color: var(--text-muted); font-size: 0.85rem;">File: {{ dataset.original_filename }}</span>
+  </div>
+</div>
+
+<!-- Reconciliation & Quality Overview -->
+<div class="card">
+  <h2 style="font-size: 1.15rem; margin-bottom: 1rem;">Data Quality Reconciliation</h2>
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div style="color: var(--text-muted); font-size: 0.8rem;">TOTAL ROWS</div>
+      <div class="stat-val" style="color: var(--text);">{{ profile.total_rows or 0 }}</div>
+    </div>
+    <div class="stat-card">
+      <div style="color: #6ee7b7; font-size: 0.8rem;">ACCEPTED</div>
+      <div class="stat-val" style="color: #10b981;">{{ profile.accepted_rows or 0 }}</div>
+    </div>
+    <div class="stat-card">
+      <div style="color: #fde68a; font-size: 0.8rem;">WARNINGS (BLANKS)</div>
+      <div class="stat-val" style="color: #f59e0b;">{{ profile.warning_rows or 0 }}</div>
+    </div>
+    <div class="stat-card">
+      <div style="color: #fca5a5; font-size: 0.8rem;">REJECTED / ISSUES</div>
+      <div class="stat-val" style="color: #ef4444;">{{ profile.rejected_rows or 0 }}</div>
+    </div>
+  </div>
+  <p style="font-size: 0.85rem; color: var(--text-muted);">
+    Row Count Invariant: <code>{{ profile.total_rows or 0 }} total = {{ profile.accepted_rows or 0 }} accepted + {{ profile.warning_rows or 0 }} warning + {{ profile.rejected_rows or 0 }} rejected</code>. Zero silent drops.
+  </p>
+</div>
+
+<!-- Deterministic Suggested Charts (Optional Feature with Human Confirmation) -->
+<div class="card" style="background: #0f172a; border-color: #3b82f6;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div>
+      <h2 style="font-size: 1.15rem; color: var(--text); margin: 0;">
+        ✨ Suggested Visualizations
+        <span class="badge badge-accepted" style="margin-left: 0.5rem;">TYPE-DRIVEN</span>
+      </h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+        Deterministic recommendations derived from inferred column data types.
+      </p>
+    </div>
+    <form method="POST" action="/reports/from-suggestions">
+      <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+      <input type="hidden" name="dataset_id" value="{{ dataset.id }}">
+      <button type="submit" class="btn btn-primary btn-sm">
+        + Create Report with Suggested Blocks
+      </button>
+    </form>
+  </div>
+
+  {% if suggestions %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; margin-top: 1rem;">
+      {% for s in suggestions %}
+        <div style="background: #1e293b; border: 1px solid var(--card-border); border-radius: 6px; padding: 0.85rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span class="badge badge-{{ s.kind }}">{{ s.kind }}</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ s.op }}</span>
+          </div>
+          <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem; color: var(--text);">
+            {{ s.title }}
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+            {{ s.reason }}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+<!-- Column Inferred Profiles -->
+<div class="card">
+  <h2 style="font-size: 1.15rem; margin-bottom: 1rem;">Inferred Columns &amp; Data Types</h2>
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Column</th>
+          <th>Inferred Type</th>
+          <th>Non-Blank</th>
+          <th>Blank</th>
+          <th>Invalid</th>
+          <th>Sample Values</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if profile.columns %}
+          {% for col in profile.columns %}
+            <tr>
+              <td style="font-weight: 600; color: var(--text);">{{ col.name }}</td>
+              <td>
+                <span class="badge badge-{{ col.inferred_type }}">{{ col.inferred_type }}</span>
+              </td>
+              <td>{{ col.non_blank_count }}</td>
+              <td class="{% if col.blank_count and col.blank_count > 0 %}text-warning-cell{% endif %}">
+                {{ col.blank_count }}
+              </td>
+              <td class="{% if col.invalid_count and col.invalid_count > 0 %}text-danger-cell{% endif %}">
+                {{ col.invalid_count }}
+              </td>
+              <td style="color: var(--text-muted); font-size: 0.8rem; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                {% if col.sample_values %}
+                  {{ col.sample_values | join(', ') }}
+                {% else %}
+                  &mdash;
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+              No column profile information available.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Row-Level Issues Audit Log -->
+<div class="card">
+  <h2 style="font-size: 1.15rem; margin-bottom: 1rem;">Row-Level Issue Audit (Sample)</h2>
+  {% if profile.issues_sample %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Source Row</th>
+            <th>Classification</th>
+            <th>Issue Cause</th>
+            <th>Raw Row Content</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in profile.issues_sample %}
+            <tr>
+              <td><code>Row #{{ item.source_row_number }}</code></td>
+              <td>
+                <span class="badge badge-{{ item.status }}">{{ item.status }}</span>
+              </td>
+              <td>
+                {% for iss in item.issues %}
+                  <div>
+                    <strong>{{ iss.issue }}</strong>
+                    {% if iss.column %}(col: <code>{{ iss.column }}</code>){% endif %}
+                    {% if iss.raw_value %}: <em>"{{ iss.raw_value }}"</em>{% endif %}
+                    {% if iss.detail %}: <em>{{ iss.detail }}</em>{% endif %}
+                  </div>
+                {% endfor %}
+              </td>
+              <td style="font-family: monospace; font-size: 0.75rem; color: var(--text-muted); max-width: 300px; word-break: break-all;">
+                {{ item.raw_values }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="color: var(--text-muted); font-size: 0.9rem;">
+      Clean dataset! No structural anomalies or type coercion failures detected.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

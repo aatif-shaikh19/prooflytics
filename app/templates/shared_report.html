@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}{{ report.title }} — Prooflytics Shared Report{% endblock %}
+
+{% block head %}
+<meta name="robots" content="noindex, nofollow">
+<style>
+  .block-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .metric-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0.5rem 0;
+  }
+  .stat-grid-sm {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+  .stat-box {
+    background: #0b1120;
+    border: 1px solid var(--card-border);
+    padding: 0.5rem;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 0.8rem;
+  }
+  .stat-box-num {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-top: 0.2rem;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  pre {
+    background: #0b1120;
+    border: 1px solid var(--card-border);
+    padding: 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #93c5fd;
+    overflow-x: auto;
+  }
+  .public-banner {
+    background: rgba(30, 58, 138, 0.25);
+    border: 1px solid #1e3a8a;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.85rem;
+    color: #93c5fd;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Read-Only Public Header Banner -->
+<div class="public-banner">
+  <div>
+    <strong>Shared Report</strong> &middot; Read-only public projection
+  </div>
+  <div style="font-size: 0.8rem; color: #60a5fa;">
+    Verified by Prooflytics &middot; Server-Side Provenance Engine
+  </div>
+</div>
+
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 2rem; margin-bottom: 0.25rem;">{{ report.title }}</h1>
+    <div style="color: var(--text-muted); font-size: 0.85rem;">
+      Published report &middot; {{ evaluated_blocks|length }} blocks &middot; Live calculations
+    </div>
+  </div>
+  <button type="button" class="btn btn-secondary btn-sm no-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+</div>
+
+<!-- Rendered Blocks List -->
+<div>
+  {% if evaluated_blocks %}
+    {% for block, calc in evaluated_blocks %}
+      <div class="block-card" id="block-{{ block.id }}">
+        <!-- Block Card Header -->
+        <div class="block-header">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="badge badge-{{ block.kind }}">{{ block.kind }}</span>
+            <h2 style="font-size: 1.15rem; margin: 0; color: var(--text);">{{ block.title or 'Report Block' }}</h2>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">
+            Block #{{ loop.index }}
+          </span>
+        </div>
+
+        <!-- Block Content Area -->
+        <div style="margin: 1rem 0;">
+          {% if block.kind == 'metric' %}
+            <div class="metric-value">{{ calc.formatted_value }}</div>
+            <div style="color: var(--text-muted); font-size: 0.85rem;">
+              {{ calc.human_formula }} &middot; {{ calc.row_accounting.included }} records included
+            </div>
+
+            {% if calc.group_breakdown %}
+              <div style="margin-top: 1rem;" class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Group</th>
+                      <th>Value</th>
+                      <th>Records</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for g in calc.group_breakdown %}
+                      <tr>
+                        <td style="font-weight: 600;">{{ g.group_key }}</td>
+                        <td>{{ g.value }}</td>
+                        <td>{{ g.included_count }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% endif %}
+
+          {% elif block.kind == 'bar_chart' %}
+            <div style="height: 280px; position: relative;">
+              <canvas data-chart='{{ calc.chart_data | tojson }}' data-chart-type="bar"></canvas>
+            </div>
+
+          {% elif block.kind == 'line_chart' %}
+            <div style="height: 280px; position: relative;">
+              <canvas data-chart='{{ calc.chart_data | tojson }}' data-chart-type="line"></canvas>
+            </div>
+
+          {% elif block.kind == 'top_n_table' %}
+            {% if calc.table_data and calc.table_data.rows %}
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      {% for h in calc.table_data.headers %}
+                        <th>{{ h }}</th>
+                      {% endfor %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for r in calc.table_data.rows %}
+                      <tr>
+                        {% for cell in r %}
+                          <td>{{ cell }}</td>
+                        {% endfor %}
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p style="color: var(--text-muted); font-size: 0.85rem;">No matching rows.</p>
+            {% endif %}
+
+          {% elif block.kind == 'note' %}
+            <div style="white-space: pre-wrap; font-size: 0.95rem; color: var(--text); background: #0b1120; padding: 1rem; border-radius: 6px;">
+              {{ calc.primary_value }}
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Provenance Trigger -->
+        <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openModal('prov-modal-{{ block.id }}')">
+            🔍 How was this calculated?
+          </button>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">
+            Engine: <code>Polars</code> (Server-side)
+          </span>
+        </div>
+
+        <!-- Accessible Provenance Modal Dialog -->
+        <div id="prov-modal-{{ block.id }}" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title-{{ block.id }}">
+          <div class="modal-dialog">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.5rem;">
+              <h3 id="modal-title-{{ block.id }}" style="font-size: 1.25rem; margin: 0;">
+                Calculation Provenance &amp; Lineage
+              </h3>
+              <button type="button" class="btn btn-secondary btn-sm modal-close" onclick="closeModal('prov-modal-{{ block.id }}')">✕</button>
+            </div>
+
+            <!-- Formula & Narrative -->
+            <div style="margin-bottom: 1rem;">
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">HUMAN FORMULA</div>
+              <div style="font-size: 1.1rem; font-weight: 700; color: #60a5fa;">{{ calc.human_formula }}</div>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">NARRATIVE EXPLANATION</div>
+              <p style="font-size: 0.9rem; line-height: 1.5;">{{ calc.narrative_explanation }}</p>
+            </div>
+
+            <!-- Disjoint Row Accounting Breakdown -->
+            <div style="margin-bottom: 1rem;">
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">ROW ACCOUNTING RECONCILIATION</div>
+              <div class="stat-grid-sm">
+                <div class="stat-box">
+                  <div style="color: var(--text-muted);">TOTAL</div>
+                  <div class="stat-box-num">{{ calc.row_accounting.total_rows }}</div>
+                </div>
+                <div class="stat-box">
+                  <div style="color: #6ee7b7;">INCLUDED</div>
+                  <div class="stat-box-num" style="color: #10b981;">{{ calc.row_accounting.included }}</div>
+                </div>
+                <div class="stat-box">
+                  <div style="color: #fde68a;">FILTERED</div>
+                  <div class="stat-box-num" style="color: #f59e0b;">{{ calc.row_accounting.filtered_out }}</div>
+                </div>
+                <div class="stat-box">
+                  <div style="color: #fca5a5;">INVALID OP</div>
+                  <div class="stat-box-num" style="color: #ef4444;">{{ calc.row_accounting.invalid_for_operation }}</div>
+                </div>
+                <div class="stat-box">
+                  <div style="color: #fca5a5;">RAGGED</div>
+                  <div class="stat-box-num" style="color: #ef4444;">{{ calc.row_accounting.structurally_rejected }}</div>
+                </div>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">
+                <code>{{ calc.row_accounting.total_rows }} total = {{ calc.row_accounting.included }} included + {{ calc.row_accounting.filtered_out }} filtered + {{ calc.row_accounting.invalid_for_operation }} invalid + {{ calc.row_accounting.structurally_rejected }} rejected</code>
+              </div>
+            </div>
+
+            <!-- Exact Executed Polars AST Specification -->
+            <div>
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">CANONICAL EXECUTED AST (POLARS)</div>
+              <pre><code>{{ calc.canonical_ast.model_dump_json(indent=2) }}</code></pre>
+            </div>
+
+            <div style="margin-top: 1.5rem; text-align: right;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('prov-modal-{{ block.id }}')">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="card" style="text-align: center; padding: 3rem 1.5rem;">
+      <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem;">This report has no blocks yet</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        The report owner has not added any summary metrics, charts, or notes.
+      </p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

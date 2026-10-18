@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Upload CSV Dataset — Prooflytics{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 2rem auto;">
+  <div style="margin-bottom: 1.5rem;">
+    <a href="/" style="color: var(--primary); text-decoration: none; font-size: 0.9rem;">&larr; Back to Dashboard</a>
+    <h1 style="font-size: 1.75rem; margin-top: 0.5rem;">Upload CSV Dataset</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">
+      Upload a messy or structured CSV (max 5 MiB). All rows and raw values are preserved for audit.
+    </p>
+  </div>
+
+  {% if error %}
+    <div class="alert alert-danger" role="alert" style="margin-bottom: 1.5rem;">
+      <strong>Ingestion Error:</strong> {{ error }}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <form method="POST" action="/datasets/upload" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ current_session.csrf_token if current_session else '' }}">
+
+      <div class="form-group">
+        <label for="dataset_name">Dataset Name (Optional)</label>
+        <input type="text" id="dataset_name" name="dataset_name" placeholder="e.g. Q3 Operations Log">
+        <small style="color: var(--text-muted); font-size: 0.8rem;">Defaults to filename if left empty.</small>
+      </div>
+
+      <div class="form-group">
+        <label for="csv_file">CSV File <span style="color: var(--danger);">*</span></label>
+        <input type="file" id="csv_file" name="csv_file" accept=".csv,text/csv,text/plain" required
+               style="background: #0b1120; border: 1px dashed var(--card-border); padding: 1rem; width: 100%; border-radius: 6px; color: var(--text);">
+        <small style="color: var(--text-muted); font-size: 0.8rem; display: block; margin-top: 0.5rem;">
+          Maximum file size: 5 MiB &middot; Supported encodings: UTF-8 (with or without BOM)
+        </small>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%;">Upload and Profile Dataset</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

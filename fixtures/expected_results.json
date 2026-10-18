@@ -1,0 +1,128 @@
+{
+  "generator_seed": 42,
+  "total_rows": 2500,
+  "accepted_rows": 2433,
+  "warning_rows": 28,
+  "rejected_rows": 39,
+  "column_types": {
+    "transaction_id": "text",
+    "transaction_date": "date",
+    "department": "category",
+    "amount": "number",
+    "notes": "text"
+  },
+  "ragged_rows_count": 8,
+  "aggregations": {
+    "amount": {
+      "sum": 1796381.75,
+      "avg": 728.76,
+      "min": -500.0,
+      "max": 1524.55,
+      "count_non_null": 2465,
+      "accounting": {
+        "total_rows": 2500,
+        "structurally_rejected": 8,
+        "filtered_out": 0,
+        "invalid_for_operation": 27,
+        "included": 2465
+      }
+    },
+    "department_grouped_sum": {
+      "values": {
+        "Finance": 377337.5,
+        "Support": 377112.5,
+        "Sales": 375387.5,
+        "Marketing": 373662.5,
+        "Engineering": 296711.75
+      },
+      "included_total": 2451
+    },
+    "filtered_test": {
+      "sum": 222868.25,
+      "accounting": {
+        "total_rows": 2500,
+        "structurally_rejected": 8,
+        "filtered_out": 2165,
+        "invalid_for_operation": 2,
+        "included": 325
+      }
+    }
+  },
+  "columns": [
+    {
+      "name": "transaction_id",
+      "inferred_type": "text",
+      "total_count": 2500,
+      "non_blank_count": 2500,
+      "blank_count": 0,
+      "invalid_count": 0,
+      "sample_values": [
+        "TXN-10001",
+        "TXN-10002",
+        "TXN-10003",
+        "TXN-10004",
+        "TXN-10005"
+      ]
+    },
+    {
+      "name": "transaction_date",
+      "inferred_type": "date",
+      "total_count": 2500,
+      "non_blank_count": 2488,
+      "blank_count": 12,
+      "invalid_count": 14,
+      "sample_values": [
+        "2024-02-02",
+        "2024-03-03",
+        "2024-04-04",
+        "2024-05-05",
+        "2024-06-06"
+      ]
+    },
+    {
+      "name": "department",
+      "inferred_type": "category",
+      "total_count": 2500,
+      "non_blank_count": 2482,
+      "blank_count": 18,
+      "invalid_count": 0,
+      "sample_values": [
+        "Marketing",
+        "Sales",
+        "Support",
+        "Finance",
+        "Engineering"
+      ]
+    },
+    {
+      "name": "amount",
+      "inferred_type": "number",
+      "total_count": 2500,
+      "non_blank_count": 2486,
+      "blank_count": 14,
+      "invalid_count": 18,
+      "sample_values": [
+        "28.45",
+        "31.90",
+        "35.35",
+        "38.80",
+        "42.25"
+      ]
+    },
+    {
+      "name": "notes",
+      "inferred_type": "text",
+      "total_count": 2500,
+      "non_blank_count": 2495,
+      "blank_count": 5,
+      "invalid_count": 0,
+      "sample_values": [
+        "Standard transaction entry 1",
+        "Standard transaction entry 2",
+        "Standard transaction entry 3",
+        "Standard transaction entry 4",
+        "Standard transaction entry 5"
+      ]
+    }
+  ]
+}

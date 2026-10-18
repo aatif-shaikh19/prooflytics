@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Prooflytics{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+  <h1 style="font-size: 1.75rem; margin-bottom: 0.25rem;">Workspace Dashboard</h1>
+  <p style="color: var(--text-muted);">Signed in as <strong>{{ current_user.email }}</strong></p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+  <!-- Datasets Card -->
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h2 style="font-size: 1.25rem;">My Datasets</h2>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 0.85rem; color: var(--text-muted); background: #0b1120; padding: 0.2rem 0.6rem; border-radius: 999px;">
+          {{ datasets|length }}
+        </span>
+        <a href="/datasets/upload" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+          + Upload CSV
+        </a>
+      </div>
+    </div>
+
+    {% if datasets %}
+      <ul style="list-style: none;">
+        {% for dataset in datasets %}
+          <li style="padding: 0.75rem 0; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <a href="/datasets/{{ dataset.id }}" style="color: var(--text); text-decoration: none; font-weight: 500;">
+                {{ dataset.name }}
+              </a>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">
+                {{ dataset.row_count }} rows &middot; {{ dataset.created_at.strftime('%Y-%m-%d %H:%M') }}
+              </div>
+            </div>
+            <a href="/datasets/{{ dataset.id }}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">
+              View
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">
+        No datasets uploaded yet. Ingestion pipeline is ready for Phase 2.
+      </p>
+    {% endif %}
+  </div>
+
+  <!-- Reports Card -->
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h2 style="font-size: 1.25rem;">My Reports</h2>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 0.85rem; color: var(--text-muted); background: #0b1120; padding: 0.2rem 0.6rem; border-radius: 999px;">
+          {{ reports|length }}
+        </span>
+        <a href="/reports/create" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+          + New Report
+        </a>
+      </div>
+    </div>
+
+    {% if reports %}
+      <ul style="list-style: none;">
+        {% for report in reports %}
+          <li style="padding: 0.75rem 0; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <a href="/reports/{{ report.id }}" style="color: var(--text); text-decoration: none; font-weight: 500;">
+                {{ report.title }}
+              </a>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">
+                Dataset: {{ report.dataset.name if report.dataset else 'Unknown' }} &middot; {{ report.blocks|length }} blocks
+              </div>
+            </div>
+            <a href="/reports/{{ report.id }}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">
+              Open
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">
+        No reports composed yet. Report builder will be connected in Phase 4.
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

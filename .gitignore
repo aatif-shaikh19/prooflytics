@@ -1,0 +1,16 @@
+__pycache__/
+.pytest_cache/
+.venv/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.db
+uploads/
+.dist/
+dist/
+*.pyc
+.coverage
+htmlcov/
+node_modules/
+.DS_Store
